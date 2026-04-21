@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Scan History</h1>
+{% if scans %}
+<table>
+    <tr><th>Host</th><th>Started</th><th>Finished</th><th>Status</th><th>Findings</th></tr>
+    {% for s in scans %}
+    <tr>
+        <td>{{ s.host }}</td>
+        <td>{{ s.started_at }}</td>
+        <td>{{ s.finished_at or "—" }}</td>
+        <td>{{ s.status }}</td>
+        <td>{{ s.finding_count }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>No scan history yet.</p>
+{% endif %}
+{% endblock %}

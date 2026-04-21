@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Vuln Scanner</h1>
+<div>
+    <div class="card"><h3>Targets</h3><p>{{ target_count }}</p></div>
+    <div class="card"><h3>Active Findings</h3><p>{{ finding_count }}</p></div>
+    <div class="card"><h3>Next Scan</h3><p style="font-size:14px;margin-top:4px;">{{ next_scan }}</p></div>
+</div>
+<h2>Recent Scans</h2>
+{% if recent_scans %}
+<table>
+    <tr><th>Host</th><th>Started</th><th>Status</th><th>Findings</th></tr>
+    {% for s in recent_scans %}
+    <tr>
+        <td>{{ s.host }}</td>
+        <td>{{ s.started_at }}</td>
+        <td>{{ s.status }}</td>
+        <td>{{ s.finding_count }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>No scans yet. Add a target on the <a href="/targets">Targets</a> page and run a scan.</p>
+{% endif %}
+{% endblock %}

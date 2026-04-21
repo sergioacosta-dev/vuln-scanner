@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Active Findings</h1>
+{% if findings %}
+<table>
+    <tr><th>Host</th><th>Port</th><th>Script</th><th>Severity</th><th>First Seen</th><th>Output</th><th></th></tr>
+    {% for f in findings %}
+    <tr>
+        <td>{{ f.host }}</td>
+        <td>{{ f.port }}</td>
+        <td>{{ f.script_name }}</td>
+        <td class="{{ f.severity }}">{{ f.severity }}</td>
+        <td>{{ f.first_seen }}</td>
+        <td><pre>{{ f.output[:300] }}</pre></td>
+        <td>
+            <form method="post" action="/findings/resolve/{{ f.id }}">
+                <button class="btn-red" type="submit">Resolve</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>No active findings. Run a scan from the <a href="/targets">Targets</a> page.</p>
+{% endif %}
+{% endblock %}

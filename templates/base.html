@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vuln Scanner</title>
+    <style>
+        body { font-family: monospace; max-width: 960px; margin: 40px auto; padding: 0 20px; background: #0d1117; color: #c9d1d9; }
+        nav a { margin-right: 20px; color: #58a6ff; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        h1, h2 { color: #f0f6fc; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th, td { padding: 8px 12px; border: 1px solid #30363d; text-align: left; }
+        th { background: #161b22; }
+        pre { margin: 0; font-size: 11px; max-width: 320px; overflow: auto; white-space: pre-wrap; }
+        .high { color: #f85149; font-weight: bold; }
+        .medium { color: #e3b341; }
+        .info { color: #58a6ff; }
+        .card { background: #161b22; border: 1px solid #30363d; padding: 16px 20px; margin: 0 8px 8px 0; display: inline-block; min-width: 160px; border-radius: 6px; vertical-align: top; }
+        .card h3 { margin: 0 0 8px 0; font-size: 13px; color: #8b949e; }
+        .card p { margin: 0; font-size: 26px; }
+        input[type=text] { background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; padding: 6px 10px; border-radius: 4px; margin-right: 6px; }
+        button, .btn { background: #238636; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #2ea043; }
+        .btn-red { background: #b62324; }
+        .btn-red:hover { background: #da3633; }
+        .flash { background: #1f6feb; color: #fff; padding: 10px 16px; border-radius: 4px; margin-bottom: 16px; }
+        hr { border-color: #30363d; margin: 16px 0; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/findings">Findings</a>
+        <a href="/targets">Targets</a>
+        <a href="/history">History</a>
+    </nav>
+    <hr>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}{% for msg in messages %}<div class="flash">{{ msg }}</div>{% endfor %}{% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+</body>
+</html>
