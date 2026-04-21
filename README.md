@@ -80,3 +80,8 @@ Dashboard at http://127.0.0.1:5000
 - **Scheduling:** APScheduler background jobs running inside a Flask app
 - **Notifications:** Gmail SMTP with app passwords, Windows desktop toasts via plyer
 - **SQLite:** Relational schema design, deduplication logic, cross-table joins
+
+## Screenshot
+
+<img width="1054" height="545" alt="image" src="https://github.com/user-attachments/assets/19afa345-cb26-4e25-86a6-0da99cb8f3f0" />
+
