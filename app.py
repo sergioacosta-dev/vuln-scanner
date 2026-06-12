@@ -125,4 +125,4 @@ def create_app(testing=False):
 if __name__ == "__main__":
     app = create_app()
     scheduler.start(lambda: run_scheduled_scan(app))
-    app.run(debug=True, use_reloader=False, port=5002)
+    app.run(host="0.0.0.0", debug=False, use_reloader=False, port=5002)
