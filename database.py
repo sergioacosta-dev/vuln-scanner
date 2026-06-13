@@ -87,9 +87,9 @@ def add_finding(conn, scan_id, target_id, port, script_name, output, severity):
 
 def get_findings(conn, resolved=False):
     return conn.execute(
-        """SELECT f.*, t.host
+        """SELECT f.*, COALESCE(t.host, '(removed target)') AS host
            FROM findings f
-           JOIN targets t ON f.target_id=t.id
+           LEFT JOIN targets t ON f.target_id=t.id
            WHERE f.resolved=?
            ORDER BY f.first_seen DESC""",
         (1 if resolved else 0,)

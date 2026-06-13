@@ -77,3 +77,17 @@ def test_resolve_finding(db):
     finding_id = get_findings(db)[0]["id"]
     resolve_finding(db, finding_id)
     assert get_findings(db) == []
+
+def test_get_findings_includes_findings_whose_target_was_recreated(db):
+    add_target(db, "10.0.0.1", "80")
+    old_target_id = get_targets(db)[0]["id"]
+    scan_id = add_scan(db, old_target_id)
+    add_finding(db, scan_id, old_target_id, 80, "http-vuln-test", "VULNERABLE", "high")
+
+    # Target removed and re-added later, getting a new autoincrement id.
+    delete_target(db, old_target_id)
+    add_target(db, "10.0.0.1", "80")
+
+    findings = get_findings(db)
+    assert len(findings) == 1
+    assert findings[0]["script_name"] == "http-vuln-test"
