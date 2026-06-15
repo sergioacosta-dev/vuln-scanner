@@ -5,12 +5,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-try:
-    from plyer import notification as _desktop
-    PLYER_AVAILABLE = True
-except Exception:
-    PLYER_AVAILABLE = False
-
 def build_email_body(findings):
     lines = [f"Vuln Scanner found {len(findings)} new vulnerability(s):\n"]
     for f in findings:
@@ -38,16 +32,6 @@ def send_email(findings):
         smtp.login(user, password)
         smtp.send_message(msg)
 
-def send_desktop(count):
-    if not PLYER_AVAILABLE:
-        print(f"[notifier] Desktop: {count} new finding(s) detected.")
-        return
-    _desktop.notify(
-        title="Vuln Scanner Alert",
-        message=f"{count} new vulnerability(s) detected. Check the dashboard.",
-        timeout=10
-    )
-
 def notify(findings, dry_run=False):
     if not findings:
         return
@@ -55,4 +39,4 @@ def notify(findings, dry_run=False):
         print(f"[notifier] dry_run: would notify about {len(findings)} finding(s).")
         return
     send_email(findings)
-    send_desktop(len(findings))
+    print(f"[notifier] {len(findings)} new finding(s) detected. Email sent.")
