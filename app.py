@@ -1,4 +1,6 @@
+import os
 import sqlite3
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, flash
 from database import (
     init_db, get_connection, add_target, get_targets, delete_target,
@@ -7,6 +9,8 @@ from database import (
 from scanner import run_scan
 from notifier import notify
 import scheduler
+
+load_dotenv()
 
 
 def run_scheduled_scan(app):
@@ -31,7 +35,17 @@ def run_scheduled_scan(app):
 
 def create_app(testing=False):
     app = Flask(__name__)
-    app.secret_key = "vuln-scanner-secret"
+    secret_key = os.getenv("SECRET_KEY")
+    if not secret_key:
+        if testing:
+            secret_key = "test-secret-key"
+        else:
+            raise RuntimeError(
+                "SECRET_KEY environment variable is required. "
+                "Set it in .env (see .env.example) — generate one with: "
+                "python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+    app.secret_key = secret_key
 
     if not testing:
         conn = get_connection()
