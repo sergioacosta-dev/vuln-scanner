@@ -1,7 +1,10 @@
+import ipaddress
 import os
+import secrets
+import socket
 import sqlite3
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, Response, render_template, request, redirect, url_for, flash
 from database import (
     init_db, get_connection, add_target, get_targets, delete_target,
     add_scan, update_scan, add_finding, get_findings, get_scan_history, resolve_finding
@@ -11,6 +14,17 @@ from notifier import notify
 import scheduler
 
 load_dotenv()
+
+
+def is_authorized_target(host):
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        try:
+            ip = ipaddress.ip_address(socket.gethostbyname(host))
+        except (socket.gaierror, ValueError):
+            return False
+    return ip.is_private or ip.is_loopback
 
 
 def run_scheduled_scan(app):
@@ -46,6 +60,30 @@ def create_app(testing=False):
                 "python -c \"import secrets; print(secrets.token_hex(32))\""
             )
     app.secret_key = secret_key
+
+    auth_user = os.getenv("AUTH_USER")
+    auth_password = os.getenv("AUTH_PASSWORD")
+    if not testing and not (auth_user and auth_password):
+        raise RuntimeError(
+            "AUTH_USER and AUTH_PASSWORD environment variables are required. "
+            "Set them in .env (see .env.example)."
+        )
+
+    @app.before_request
+    def require_auth():
+        if testing:
+            return
+        creds = request.authorization
+        valid = (
+            creds is not None
+            and secrets.compare_digest(creds.username, auth_user)
+            and secrets.compare_digest(creds.password, auth_password)
+        )
+        if not valid:
+            return Response(
+                "Authentication required.", 401,
+                {"WWW-Authenticate": 'Basic realm="Vuln Scanner"'}
+            )
 
     if not testing:
         conn = get_connection()
@@ -83,8 +121,11 @@ def create_app(testing=False):
             host = request.form.get("host", "").strip()
             ports = request.form.get("ports", "").strip()
             if host and ports:
-                add_target(conn, host, ports)
-                flash(f"Target {host} added.")
+                if is_authorized_target(host):
+                    add_target(conn, host, ports)
+                    flash(f"Target {host} added.")
+                else:
+                    flash(f"Target {host} rejected: only private/LAN addresses are allowed.")
             return redirect(url_for("targets"))
         return render_template("targets.html", targets=get_targets(conn))
 
