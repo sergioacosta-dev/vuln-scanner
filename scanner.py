@@ -22,7 +22,7 @@ def parse_nmap_results(scan_data, host):
                 })
     return findings
 
-def run_scan(host, ports):
+def run_scan(host, ports, timeout=300):
     nm = nmap.PortScanner()
-    nm.scan(hosts=host, ports=ports, arguments="--script vuln -sV")
+    nm.scan(hosts=host, ports=ports, arguments="--script vuln -sV", timeout=timeout)
     return parse_nmap_results(nm._scan_result.get("scan", {}), host)

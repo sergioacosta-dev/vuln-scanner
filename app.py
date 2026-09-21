@@ -1,8 +1,10 @@
 import ipaddress
+import logging
 import os
 import secrets
 import socket
 import sqlite3
+import threading
 from dotenv import load_dotenv
 from flask import Flask, Response, render_template, request, redirect, url_for, flash
 from database import (
@@ -14,6 +16,12 @@ from notifier import notify
 import scheduler
 
 load_dotenv()
+
+logger = logging.getLogger("vuln_scanner")
+
+# ponytail: process-wide, not per-target-fair; fine at this scale (one admin, handful of targets)
+_scanning_targets = set()
+_scanning_lock = threading.Lock()
 
 
 def is_authorized_target(host):
@@ -27,24 +35,59 @@ def is_authorized_target(host):
     return ip.is_private or ip.is_loopback
 
 
+def _try_claim_scan(target_id):
+    with _scanning_lock:
+        if target_id in _scanning_targets:
+            return False
+        _scanning_targets.add(target_id)
+        return True
+
+
+def _release_scan(target_id):
+    with _scanning_lock:
+        _scanning_targets.discard(target_id)
+
+
+def run_target_scan(conn, target):
+    """Re-validates the target, runs the nmap scan, and stores findings.
+
+    Returns (status, new_findings, error) — status is "done", "failed", "rejected",
+    or "busy". Notification is the caller's job so a failed email never marks a
+    successful scan as failed.
+    """
+    if not is_authorized_target(target["host"]):
+        return "rejected", [], "target no longer resolves to a private/loopback address"
+    if not _try_claim_scan(target["id"]):
+        return "busy", [], "a scan for this target is already running"
+    scan_id = add_scan(conn, target["id"])
+    try:
+        raw_findings = run_scan(target["host"], target["ports"], timeout=300)
+        new_findings = []
+        for f in raw_findings:
+            is_new = add_finding(conn, scan_id, target["id"], f["port"], f["script_name"], f["output"], f["severity"])
+            if is_new:
+                new_findings.append({**f, "host": target["host"]})
+        update_scan(conn, scan_id, "done")
+        return "done", new_findings, None
+    except Exception as e:
+        update_scan(conn, scan_id, "failed")
+        return "failed", [], str(e)
+    finally:
+        _release_scan(target["id"])
+
+
 def run_scheduled_scan(app):
     with app.app_context():
         conn = get_connection()
         for target in get_targets(conn):
-            scan_id = add_scan(conn, target["id"])
-            try:
-                raw_findings = run_scan(target["host"], target["ports"])
-                new_findings = []
-                for f in raw_findings:
-                    is_new = add_finding(conn, scan_id, target["id"], f["port"], f["script_name"], f["output"], f["severity"])
-                    if is_new:
-                        new_findings.append({**f, "host": target["host"]})
-                update_scan(conn, scan_id, "done")
-                if new_findings:
+            status, new_findings, error = run_target_scan(conn, target)
+            if status not in ("done",):
+                logger.warning("[scheduler] Scan %s for %s: %s", status, target["host"], error)
+            if new_findings:
+                try:
                     notify(new_findings)
-            except Exception as e:
-                update_scan(conn, scan_id, "failed")
-                print(f"[scheduler] Scan failed for {target['host']}: {e}")
+                except Exception:
+                    logger.exception("[scheduler] Notification failed for %s", target["host"])
 
 
 def create_app(testing=False):
@@ -142,30 +185,31 @@ def create_app(testing=False):
     @app.route("/scan", methods=["POST"])
     def manual_scan():
         conn = get_db()
-        target_id = request.form.get("target_id")
-        if not target_id:
+        target_id = request.form.get("target_id", "")
+        try:
+            target_id = int(target_id)
+        except ValueError:
             flash("No target selected.")
             return redirect(url_for("targets"))
-        all_targets = get_targets(conn)
-        target = next((t for t in all_targets if t["id"] == int(target_id)), None)
+        target = next((t for t in get_targets(conn) if t["id"] == target_id), None)
         if not target:
             flash("Target not found.")
             return redirect(url_for("targets"))
-        scan_id = add_scan(conn, target["id"])
-        try:
-            raw_findings = run_scan(target["host"], target["ports"])
-            new_findings = []
-            for f in raw_findings:
-                is_new = add_finding(conn, scan_id, target["id"], f["port"], f["script_name"], f["output"], f["severity"])
-                if is_new:
-                    new_findings.append({**f, "host": target["host"]})
-            update_scan(conn, scan_id, "done")
-            if new_findings:
-                notify(new_findings)
+        status, new_findings, error = run_target_scan(conn, target)
+        if status == "rejected":
+            flash(f"Scan blocked: {target['host']} {error}.")
+        elif status == "busy":
+            flash(f"Scan already running for {target['host']}.")
+        elif status == "failed":
+            flash(f"Scan failed: {error}")
+        else:
             flash(f"Scan complete. {len(new_findings)} new finding(s).")
-        except Exception as e:
-            update_scan(conn, scan_id, "failed")
-            flash(f"Scan failed: {e}")
+        if new_findings:
+            try:
+                notify(new_findings)
+            except Exception:
+                logger.exception("Notification failed for %s", target["host"])
+                flash("Findings saved, but the notification email failed to send.")
         return redirect(url_for("findings"))
 
     @app.route("/findings/resolve/<int:finding_id>", methods=["POST"])
@@ -178,6 +222,7 @@ def create_app(testing=False):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     app = create_app()
     scheduler.start(lambda: run_scheduled_scan(app))
     app.run(host="0.0.0.0", debug=False, use_reloader=False, port=5002, threaded=True)

@@ -26,7 +26,7 @@ To help triage quickly, please include:
 
 This covers the Flask app itself (authentication, input handling, storage of scan results) — not the Nmap NSE scripts it invokes, which are third-party. Please report vulnerabilities in how this app handles untrusted input or exposes scan data, not general Nmap CVEs.
 
-This project has no live deployment. Reports are limited to the source code itself.
+This project has a live deployment on a private home server, not reachable from the public internet. Reports are limited to the source code itself.
 
 **Out of scope:**
 - Vulnerabilities requiring physical access to a device

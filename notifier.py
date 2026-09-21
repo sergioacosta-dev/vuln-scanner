@@ -1,9 +1,12 @@
+import logging
 import os
 import smtplib
 from email.message import EmailMessage
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger("vuln_scanner.notifier")
 
 def build_email_body(findings):
     lines = [f"Vuln Scanner found {len(findings)} new vulnerability(s):\n"]
@@ -21,7 +24,7 @@ def send_email(findings):
     password = os.getenv("GMAIL_APP_PASSWORD")
     to = os.getenv("NOTIFY_EMAIL")
     if not all([user, password, to]):
-        print("[notifier] Email credentials not configured, skipping.")
+        logger.warning("Email credentials not configured, skipping.")
         return
     msg = EmailMessage()
     msg["Subject"] = f"[Vuln Scanner] {len(findings)} new finding(s) detected"
@@ -36,7 +39,7 @@ def notify(findings, dry_run=False):
     if not findings:
         return
     if dry_run:
-        print(f"[notifier] dry_run: would notify about {len(findings)} finding(s).")
+        logger.info("dry_run: would notify about %d finding(s).", len(findings))
         return
     send_email(findings)
-    print(f"[notifier] {len(findings)} new finding(s) detected. Email sent.")
+    logger.info("%d new finding(s) detected. Email sent.", len(findings))
