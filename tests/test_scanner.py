@@ -1,4 +1,4 @@
-from scanner import infer_severity, parse_nmap_results
+from scanner import HOMESERVER_IP, infer_severity, parse_nmap_results
 
 def test_infer_severity_high():
     assert infer_severity("VULNERABLE: some exploit found") == "high"
@@ -41,23 +41,47 @@ def test_parse_nmap_results_empty_scripts():
 
 def test_parse_nmap_results_suppresses_allowlisted_openssh_vulners():
     fake_scan = {
-        "127.0.0.1": {
+        HOMESERVER_IP: {
             "tcp": {
                 22: {"script": {"vulners": "cpe:/a:openbsd:openssh:9.6p1:\n\tCVE-2023-99999\t10.0"}}
             }
         }
     }
-    assert parse_nmap_results(fake_scan, "127.0.0.1") == []
+    assert parse_nmap_results(fake_scan, HOMESERVER_IP) == []
 
 def test_parse_nmap_results_suppresses_allowlisted_slowloris():
     fake_scan = {
-        "127.0.0.1": {
+        HOMESERVER_IP: {
             "tcp": {
                 80: {"script": {"http-slowloris-check": "VULNERABLE:\nSlowloris DOS attack"}}
             }
         }
     }
-    assert parse_nmap_results(fake_scan, "127.0.0.1") == []
+    assert parse_nmap_results(fake_scan, HOMESERVER_IP) == []
+
+def test_parse_nmap_results_does_not_suppress_slowloris_on_other_hosts():
+    fake_scan = {
+        "192.168.12.1": {
+            "tcp": {
+                80: {"script": {"http-slowloris-check": "VULNERABLE:\nSlowloris DOS attack"}}
+            }
+        }
+    }
+    findings = parse_nmap_results(fake_scan, "192.168.12.1")
+    assert len(findings) == 1
+    assert findings[0]["script_name"] == "http-slowloris-check"
+
+def test_parse_nmap_results_does_not_suppress_different_openssh_version():
+    fake_scan = {
+        HOMESERVER_IP: {
+            "tcp": {
+                22: {"script": {"vulners": "cpe:/a:openbsd:openssh:8.2p1:\n\tCVE-2024-00000\t9.8"}}
+            }
+        }
+    }
+    findings = parse_nmap_results(fake_scan, HOMESERVER_IP)
+    assert len(findings) == 1
+    assert findings[0]["script_name"] == "vulners"
 
 def test_parse_nmap_results_still_reports_unrelated_findings():
     fake_scan = {
