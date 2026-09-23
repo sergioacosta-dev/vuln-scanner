@@ -61,7 +61,7 @@ def run_target_scan(conn, target):
         return "busy", [], "a scan for this target is already running"
     scan_id = add_scan(conn, target["id"])
     try:
-        raw_findings = run_scan(target["host"], target["ports"], timeout=300)
+        raw_findings = run_scan(target["host"], target["ports"], timeout=900)
         new_findings = []
         for f in raw_findings:
             is_new = add_finding(conn, scan_id, target["id"], f["port"], f["script_name"], f["output"], f["severity"])
